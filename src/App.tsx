@@ -1,5 +1,7 @@
 import { useState, lazy, Suspense } from 'react';
 import { useTheme } from './hooks/useTheme';
+import { LicenseProvider, useLicense } from './licensing/LicenseProvider';
+import { AnimatedBackground } from './components/AnimatedBackground';
 
 export type Page = 'home' | 'dashboard' | 'tasks' | 'subjects' | 'calendar' | 'timer';
 
@@ -36,26 +38,54 @@ function Loading() {
 }
 
 export default function App() {
+  return <LicenseProvider productKey="StudyFlow"><AppInner /></LicenseProvider>;
+}
+
+function AppInner() {
   const [page, setPage] = useState<Page>(() => {
     return 'home';
   });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { isDark, toggle } = useTheme();
+  const { isPro, loading: proLoading, setShowProModal } = useLicense();
   const PageComponent = PAGES[page];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar
-        currentPage={page}
-        isDark={isDark}
-        onNavigate={setPage}
-        onToggleTheme={toggle}
-      />
-      <main style={{ flex: 1, overflow: 'auto' }}>
-        <Suspense fallback={<Loading />}>
-          <PageComponent onNavigate={setPage} />
-        </Suspense>
-      </main>
-    </div>
+    <>
+      <AnimatedBackground />
+      <button className="mobile-hamburger" onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label="Toggle menu"
+        style={{ position: 'fixed', top: '0.75rem', left: '0.75rem', zIndex: 110, display: 'none', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', borderRadius: 'var(--radius-md)', background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)', cursor: 'pointer' }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {mobileMenuOpen ? (
+            <><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></>
+          ) : (
+            <><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></>
+          )}
+        </svg>
+      </button>
+      <div style={{ display: 'flex', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
+        {mobileMenuOpen && (
+          <div onClick={() => setMobileMenuOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 90 }}
+            className="mobile-overlay" />
+        )}
+        <Sidebar
+          currentPage={page}
+          isDark={isDark}
+          onNavigate={(p: Page) => { setPage(p); setMobileMenuOpen(false); }}
+          onToggleTheme={toggle}
+          isPro={isPro}
+          proLoading={proLoading}
+          onShowPro={() => setShowProModal(true)}
+          mobileMenuOpen={mobileMenuOpen}
+          setMobileMenuOpen={setMobileMenuOpen}
+        />
+        <main style={{ flex: 1, overflow: 'auto' }}>
+          <Suspense fallback={<Loading />}>
+            <PageComponent onNavigate={setPage} />
+          </Suspense>
+        </main>
+      </div>
+    </>
   );
 }
 
@@ -64,9 +94,14 @@ interface SidebarProps {
   isDark: boolean;
   onNavigate: (page: Page) => void;
   onToggleTheme: () => void;
+  isPro: boolean;
+  proLoading: boolean;
+  onShowPro: () => void;
+  mobileMenuOpen: boolean;
+  setMobileMenuOpen: (open: boolean) => void;
 }
 
-function Sidebar({ currentPage, isDark, onNavigate, onToggleTheme }: SidebarProps) {
+function Sidebar({ currentPage, isDark, onNavigate, onToggleTheme, isPro, proLoading, onShowPro, mobileMenuOpen, setMobileMenuOpen }: SidebarProps) {
   const isActive = (p: Page) => {
     if (p === 'home') return false;
     return currentPage === p;
@@ -74,6 +109,7 @@ function Sidebar({ currentPage, isDark, onNavigate, onToggleTheme }: SidebarProp
 
   return (
     <aside
+      className={'sidebar-nav' + (mobileMenuOpen ? ' open' : '')}
       style={{
         width: '220px',
         background: 'var(--color-surface)',
@@ -88,7 +124,7 @@ function Sidebar({ currentPage, isDark, onNavigate, onToggleTheme }: SidebarProp
       }}
     >
       <div
-        onClick={() => onNavigate('home')}
+        onClick={() => { onNavigate('home'); setMobileMenuOpen(false); }}
         style={{
           padding: '0 20px',
           marginBottom: '32px',
@@ -102,6 +138,20 @@ function Sidebar({ currentPage, isDark, onNavigate, onToggleTheme }: SidebarProp
         <span style={{ fontSize: '18px', fontWeight: 700, color: 'var(--color-primary)' }}>
           StudyFlow
         </span>
+        {!proLoading && (
+          <span style={{
+            fontSize: '0.625rem',
+            fontWeight: 600,
+            padding: '0.125rem 0.375rem',
+            borderRadius: 'var(--radius-sm)',
+            background: isPro ? 'var(--color-success-light)' : 'var(--color-warning-light)',
+            color: isPro ? 'var(--color-success)' : 'var(--color-warning)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+          }}>
+            {isPro ? 'Pro' : 'Free'}
+          </span>
+        )}
       </div>
 
       <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 10px' }}>
@@ -110,7 +160,7 @@ function Sidebar({ currentPage, isDark, onNavigate, onToggleTheme }: SidebarProp
           return (
             <button
               key={item.page}
-              onClick={() => onNavigate(item.page)}
+              onClick={() => { onNavigate(item.page); setMobileMenuOpen(false); }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -134,6 +184,30 @@ function Sidebar({ currentPage, isDark, onNavigate, onToggleTheme }: SidebarProp
       </nav>
 
       <div style={{ padding: '0 10px', marginTop: 'auto' }}>
+        {!isPro && (
+          <button
+            onClick={onShowPro}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '10px 12px',
+              borderRadius: 'var(--radius-md)',
+              border: 'none',
+              background: 'var(--color-primary)',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: 'pointer',
+              width: '100%',
+              marginBottom: '6px',
+            }}
+          >
+            <span>⭐</span>
+            Upgrade to Pro
+          </button>
+        )}
         <button
           onClick={onToggleTheme}
           style={{
