@@ -2,6 +2,8 @@
 
 > Study planner with Pomodoro timer — organize subjects, track tasks, and stay focused.
 
+This repository contains only the built distribution files. The source code is not publicly available.
+
 ## Features
 
 - Create and manage subjects, courses, and study topics
